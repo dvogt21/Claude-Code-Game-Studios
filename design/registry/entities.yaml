@@ -1,168 +1,212 @@
-# Game World Entity Registry
-#
-# PURPOSE: Single source of truth for all named game-world facts that appear
-# in more than one document. Skills check this before writing new content to
-# detect cross-doc inconsistencies at authoring time.
-#
-# RULES:
-#   - Only register facts that cross system boundaries. Internal-only facts
-#     (a formula used in one GDD only) do NOT need to be registered.
-#   - Never delete entries — set status: deprecated instead.
-#   - When a value changes: update the value, set revised: to today's date,
-#     and add a comment with the old value and which GDD changed it.
-#   - source: is the authoritative GDD — the one that "owns" this fact.
-#     Other GDDs that reference it list themselves in referenced_by.
-#   - When a new GDD references an existing entry, append its path to
-#     referenced_by. Do not create a duplicate entry.
-#
-# WRITTEN BY: /design-system (Phase 5 — after GDD sections are approved)
-#             /consistency-check (when resolving conflicts)
-# READ BY:    /design-system (Phase 2 — before authoring begins, and after
-#               Section C/D writes to conflict-check new entities/formulas)
-#             /consistency-check (primary input — grep-first, GDD-second)
-#             /review-all-gdds (Phase 1 — baseline for Phase 2 checks)
-#             /architecture-review (data structure and interface validation)
-#
-# SEARCH PATTERNS (for skills using Grep):
-#   All entity names:        Grep pattern="^  - name:" path="design/registry/entities.yaml"
-#   Specific entity:         Grep pattern="  - name: goblin" path="design/registry/entities.yaml"
-#   All items:               Grep pattern="^  - name:" path="design/registry/entities.yaml" (items section)
-#   What combat.md owns:     Grep pattern="source: design/gdd/combat.md"
-#   What inventory.md uses:  Grep pattern="referenced_by.*inventory"
-#   All gold values:          Grep pattern="value_gold:"
-#   Deprecated entries:      Grep pattern="status: deprecated"
-#
-# FORMAT: YAML. Consistent indentation is critical for grep reliability.
-#   Sections: entities | items | formulas | constants
-#   Each entry: name, status, source, referenced_by[], attributes{}, added, revised
+# Entity Registry — Ashen Maple
+# Cross-system facts: values defined in one GDD and referenced by others.
+# Do not change a value here without updating the source GDD first.
 
-version: 1
-last_updated: ""
+constants:
+  - name: INPUT_BUFFER_FRAMES
+    type: constant
+    value: 3
+    unit: frames
+    description: Number of frames a bufferable input press remains valid
+    source: design/gdd/input-and-controls.md
+    referenced_by:
+      - design/gdd/combat.md  # pending
 
-# ─── ENTITIES ────────────────────────────────────────────────────────────────
-# Named game-world objects: enemies, NPCs, characters, factions, bosses.
-# Register an entity here when it appears in more than one GDD — e.g., an
-# enemy defined in combat.md that also drops items listed in inventory.md.
-#
-# Required fields: name, status, source, referenced_by, added
-# Attribute fields: any key stats that could appear in another GDD
-#   (health, damage, drops, faction, etc.)
+  - name: INPUT_DEADZONE_MOVE
+    type: constant
+    value: 0.20
+    unit: ratio
+    description: Minimum analog stick magnitude to register movement
+    source: design/gdd/input-and-controls.md
+    referenced_by: []
 
-entities: []
+  - name: INPUT_DEADZONE_ACTION
+    type: constant
+    value: 0.50
+    unit: ratio
+    description: Analog stick threshold for triggering digital actions
+    source: design/gdd/input-and-controls.md
+    referenced_by: []
 
-# Example (remove when first real entry is added):
-#
-# entities:
-#   - name: goblin
-#     status: active              # active | deprecated
-#     source: design/gdd/combat.md
-#     referenced_by:
-#       - design/gdd/combat.md
-#       - design/gdd/inventory.md
-#     health: 40
-#     damage: 8
-#     drops:
-#       - item: goblin_arm        # must match an entry in items section
-#         qty: 1
-#         drop_rate: 0.8          # 0.0–1.0
-#     added: 2026-03-26
-#     revised: ""
+  - name: PARRY_WINDOW
+    type: constant
+    value: 0.35
+    unit: seconds
+    description: Base parry input window (gear-modifiable)
+    source: design/gdd/character-stats.md
+    referenced_by:
+      - design/gdd/input-and-controls.md
+      - design/gdd/combat.md  # pending
 
+  - name: DODGE_STAMINA_COST
+    type: constant
+    value: 20
+    unit: stamina
+    description: Stamina cost of a dodge roll
+    source: design/gdd/character-stats.md
+    referenced_by:
+      - design/gdd/stamina.md  # pending
+      - design/gdd/combat.md  # pending
 
-# ─── ITEMS ───────────────────────────────────────────────────────────────────
-# Named collectables, equipment, consumables, crafting materials, currency.
-# Register an item when its name or value appears in more than one GDD.
-#
-# Required fields: name, status, source, referenced_by, added
-# Attribute fields: value_gold, weight, stackable, category, and any stat
-#   modifiers that another system (e.g., economy, crafting) might reference.
+  - name: PARRY_STAMINA_COST
+    type: constant
+    value: 25
+    unit: stamina
+    description: Stamina cost of a shield parry
+    source: design/gdd/character-stats.md
+    referenced_by:
+      - design/gdd/stamina.md  # pending
+      - design/gdd/combat.md  # pending
 
-items: []
+  - name: STAMINA_REGEN_LOCKOUT_DELAY
+    type: constant
+    value: 1.0
+    unit: seconds
+    description: Delay before stamina regen begins after any stamina spend
+    source: design/gdd/character-stats.md
+    referenced_by:
+      - design/gdd/stamina.md  # pending
 
-# Example:
-#
-# items:
-#   - name: goblin_arm
-#     status: active
-#     source: design/gdd/combat.md   # drop defined in combat GDD
-#     referenced_by:
-#       - design/gdd/combat.md
-#       - design/gdd/inventory.md    # inventory GDD lists its weight/stack rules
-#       - design/gdd/economy.md      # economy GDD references its sell price
-#     value_gold: 5
-#     weight: 1
-#     stackable: true
-#     category: crafting_material
-#     added: 2026-03-26
-#     revised: ""
+constants:
+  # --- Movement GDD constants (added 2026-06-01) ---
+  - name: GRAVITY
+    type: constant
+    value: 980.0
+    unit: u/s²
+    description: Downward gravitational acceleration applied each physics frame when not on floor
+    source: design/gdd/movement.md
+    referenced_by:
+      - design/gdd/level-design.md  # pending — vertical gap constraint
 
+  - name: JUMP_VELOCITY
+    type: constant
+    value: 480.0
+    unit: u/s
+    description: Initial upward velocity applied at jump start; gives ~117.6 unit apex height
+    source: design/gdd/movement.md
+    referenced_by: []
 
-# ─── FORMULAS ────────────────────────────────────────────────────────────────
-# Named calculations with defined variables and output ranges.
-# Register a formula when its output feeds into another system's input,
-# or when another GDD references it by name.
-#
-# Required fields: name, status, source, referenced_by, variables[],
-#   output_range[min, max], added
-# Optional: expression (the actual formula), notes
+  - name: COYOTE_FRAMES
+    type: constant
+    value: 4
+    unit: frames
+    description: Physics frames after leaving a floor edge during which jump is still valid
+    source: design/gdd/movement.md
+    referenced_by: []
 
-formulas: []
+  - name: DODGE_DURATION
+    type: constant
+    value: 0.45
+    unit: seconds
+    description: Total dodge roll animation duration; hard ceiling for i-frame window (Formula 4)
+    source: design/gdd/movement.md
+    referenced_by:
+      - design/gdd/combat.md  # pending
 
-# Example:
-#
-# formulas:
-#   - name: damage_formula
-#     status: active
-#     source: design/gdd/combat.md
-#     referenced_by:
-#       - design/gdd/combat.md
-#       - design/gdd/progression.md   # progression GDD scales attack variable
-#     variables:
-#       - attack
-#       - defense
-#       - crit_chance
-#       - crit_multiplier
-#     output_range: [0, 999]
-#     expression: "max(0, attack - defense) * (1 + crit_chance * crit_multiplier)"
-#     notes: "Output feeds into health-system damage intake. Min is 0 (armour
-#       can absorb all damage). Max is uncapped in formula but tuning knob
-#       damage_cap in combat.md clamps at 999."
-#     added: 2026-03-26
-#     revised: ""
+  - name: DODGE_SPEED_MULTIPLIER
+    type: constant
+    value: 2.2
+    unit: ratio
+    description: Dodge velocity = move_speed × this multiplier; gives 2.1–2.8 char-height dodge distance
+    source: design/gdd/movement.md
+    referenced_by: []
 
+  - name: CLIMB_SPEED
+    type: constant
+    value: 80.0
+    unit: u/s
+    description: Vertical speed while on a ladder or rope
+    source: design/gdd/movement.md
+    referenced_by: []
 
-# ─── CONSTANTS ───────────────────────────────────────────────────────────────
-# Named numerical values referenced across multiple systems.
-# Register a constant when it is defined in one GDD but another GDD must
-# agree with it (e.g., gold carry limit defined in economy but checked in
-# inventory, or base inventory slots defined in inventory but displayed in HUD).
-#
-# Required fields: name, status, source, referenced_by, value, unit, added
+  - name: DROP_THROUGH_HOLD
+    type: constant
+    value: 0.10
+    unit: seconds
+    description: Duration move_down must be held to trigger drop-through on a one-way platform
+    source: design/gdd/movement.md
+    referenced_by: []
 
-constants: []
+  - name: DROP_THROUGH_GRACE
+    type: constant
+    value: 0.20
+    unit: seconds
+    description: Duration one_way_platform collision is disabled after a drop-through trigger
+    source: design/gdd/movement.md
+    referenced_by: []
 
-# Example:
-#
-# constants:
-#   - name: gold_carry_limit
-#     status: active
-#     source: design/gdd/economy.md
-#     referenced_by:
-#       - design/gdd/economy.md
-#       - design/gdd/inventory.md   # inventory enforces the carry limit
-#       - design/gdd/ui.md          # HUD displays current gold vs limit
-#     value: 9999
-#     unit: gold
-#     added: 2026-03-26
-#     revised: ""
-#
-#   - name: base_inventory_slots
-#     status: active
-#     source: design/gdd/inventory.md
-#     referenced_by:
-#       - design/gdd/inventory.md
-#       - design/gdd/progression.md  # progression unlocks additional slots
-#     value: 20
-#     unit: slots
-#     added: 2026-03-26
-#     revised: ""
+actions:
+  # --- Movement GDD actions ---
+  - name: i_frames_active
+    type: flag
+    description: Boolean; true during the I-frame window of a dodge roll. Read by Combat to determine hit immunity.
+    source: design/gdd/movement.md
+    referenced_by:
+      - design/gdd/combat.md  # pending
+
+  # --- Input & Controls GDD actions ---
+  # was: single `move` action before 2026-05-31 design-review
+  - name: move_left
+    type: action
+    bufferable: false
+    description: Leftward directional axis; one of four components for Input.get_vector()
+    source: design/gdd/input-and-controls.md
+    referenced_by:
+      - design/gdd/movement.md  # pending
+
+  - name: move_right
+    type: action
+    bufferable: false
+    description: Rightward directional axis; one of four components for Input.get_vector()
+    source: design/gdd/input-and-controls.md
+    referenced_by:
+      - design/gdd/movement.md  # pending
+
+  - name: move_up
+    type: action
+    bufferable: false
+    description: Upward directional axis; one of four components for Input.get_vector()
+    source: design/gdd/input-and-controls.md
+    referenced_by:
+      - design/gdd/movement.md  # pending
+
+  - name: move_down
+    type: action
+    bufferable: false
+    description: Downward directional axis; one of four components for Input.get_vector()
+    source: design/gdd/input-and-controls.md
+    referenced_by:
+      - design/gdd/movement.md  # pending
+
+  - name: attack
+    type: action
+    bufferable: true
+    source: design/gdd/input-and-controls.md
+    referenced_by:
+      - design/gdd/combat.md  # pending
+
+  - name: dodge
+    type: action
+    bufferable: true
+    stamina_cost: 20
+    source: design/gdd/input-and-controls.md
+    referenced_by:
+      - design/gdd/combat.md  # pending
+      - design/gdd/stamina.md  # pending
+
+  - name: parry
+    type: action
+    bufferable: true
+    stamina_cost: 25
+    window_seconds: 0.35
+    source: design/gdd/input-and-controls.md
+    referenced_by:
+      - design/gdd/combat.md  # pending
+      - design/gdd/stamina.md  # pending
+
+  - name: jump
+    type: action
+    bufferable: false
+    source: design/gdd/input-and-controls.md
+    referenced_by:
+      - design/gdd/movement.md  # pending
