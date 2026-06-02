@@ -1,212 +1,421 @@
 # Entity Registry — Ashen Maple
 # Cross-system facts: values defined in one GDD and referenced by others.
-# Do not change a value here without updating the source GDD first.
+# Updated by /design-system and /design-review after each GDD session.
+# Read by /consistency-check to detect cross-document conflicts.
+#
+# Rules:
+#   - Only register values that appear in 2+ GDDs (or will when downstream GDDs are authored)
+#   - source: is the authoritative owner — that GDD wins on conflict
+#   - referenced_by: every GDD that reads or mentions the value
+#   - Never delete entries — set status: deprecated if removed from all GDDs
+---
 
 constants:
+
+  # ── Input & Controls (owned by input-and-controls.md) ──────────────────────
+
   - name: INPUT_BUFFER_FRAMES
-    type: constant
     value: 3
     unit: frames
-    description: Number of frames a bufferable input press remains valid
+    description: Number of frames a bufferable input press (attack/dodge/parry) remains valid
     source: design/gdd/input-and-controls.md
     referenced_by:
-      - design/gdd/combat.md  # pending
+      - design/gdd/movement.md       # InputResolver grants drive dodge/parry execution
+      - design/gdd/combat.md         # pending
 
   - name: INPUT_DEADZONE_MOVE
-    type: constant
     value: 0.20
     unit: ratio
-    description: Minimum analog stick magnitude to register movement
+    description: Minimum analog stick magnitude to register movement; feeds 8-directional snap
     source: design/gdd/input-and-controls.md
-    referenced_by: []
+    referenced_by:
+      - design/gdd/movement.md       # 8-directional snap uses this deadzone
 
   - name: INPUT_DEADZONE_ACTION
-    type: constant
     value: 0.50
     unit: ratio
     description: Analog stick threshold for triggering digital actions
     source: design/gdd/input-and-controls.md
     referenced_by: []
 
-  - name: PARRY_WINDOW
-    type: constant
+  # ── Character Stats timing constants (owned by character-stats.md) ──────────
+
+  - name: PARRY_WINDOW_BASE
     value: 0.35
     unit: seconds
-    description: Base parry input window (gear-modifiable)
+    description: Base parry success window (parry_window stat); gear-modifiable within [0.15, 0.60]
     source: design/gdd/character-stats.md
     referenced_by:
-      - design/gdd/input-and-controls.md
-      - design/gdd/combat.md  # pending
+      - design/gdd/movement.md       # PARRY_DURATION = parry_window + PARRY_RECOVERY
+      - design/gdd/combat.md         # pending — parry evaluation
 
   - name: DODGE_STAMINA_COST
-    type: constant
     value: 20
     unit: stamina
-    description: Stamina cost of a dodge roll
+    description: Stamina cost of a dodge roll (prototype-validated)
     source: design/gdd/character-stats.md
     referenced_by:
-      - design/gdd/stamina.md  # pending
-      - design/gdd/combat.md  # pending
+      - design/gdd/stamina.md        # pending
+      - design/gdd/combat.md         # pending
 
   - name: PARRY_STAMINA_COST
-    type: constant
     value: 25
     unit: stamina
-    description: Stamina cost of a shield parry
+    description: Stamina cost of a shield parry (prototype-validated)
     source: design/gdd/character-stats.md
     referenced_by:
-      - design/gdd/stamina.md  # pending
-      - design/gdd/combat.md  # pending
+      - design/gdd/stamina.md        # pending
+      - design/gdd/combat.md         # pending
 
   - name: STAMINA_REGEN_LOCKOUT_DELAY
-    type: constant
     value: 1.0
     unit: seconds
-    description: Delay before stamina regen begins after any stamina spend
+    description: Delay before stamina regen begins after any stamina-costing action
     source: design/gdd/character-stats.md
     referenced_by:
-      - design/gdd/stamina.md  # pending
+      - design/gdd/stamina.md        # pending — runtime tick enforcement
 
-constants:
-  # --- Movement GDD constants (added 2026-06-01) ---
+  # ── Health & Death constants (owned by health-and-death.md) ────────────────
+
+  - name: HEAL_CHARGES_BASE
+    value: 3
+    unit: charges
+    tuning_range: [1, 6]
+    description: Starting Estus charge count; refilled on checkpoint touch
+    source: design/gdd/health-and-death.md
+    referenced_by:
+      - design/gdd/hud.md              # pending — charge counter display
+
+  - name: HEAL_PERCENT
+    value: 0.40
+    unit: ratio
+    tuning_range: [0.20, 0.70]
+    description: Fraction of max_health restored per Estus charge
+    source: design/gdd/health-and-death.md
+    referenced_by: []
+
+  - name: HEAL_COMMIT_TIME
+    value: 0.50
+    unit: seconds
+    tuning_range: [0.20, 0.80]
+    description: Time after heal press at which HP is actually restored; interruptions before this cancel the heal (charge already spent)
+    source: design/gdd/health-and-death.md
+    referenced_by:
+      - design/gdd/movement.md         # HEALING state transition rule
+
+  - name: HEAL_DURATION
+    value: 1.0
+    unit: seconds
+    tuning_range: [0.60, 1.50]
+    description: Total heal animation duration; HEALING movement lock ends here
+    source: design/gdd/health-and-death.md
+    referenced_by:
+      - design/gdd/movement.md         # HEALING state duration
+
+  - name: CRITICAL_THRESHOLD
+    value: 0.20
+    unit: ratio
+    tuning_range: [0.10, 0.35]
+    description: HP ratio at or below which critical_health_entered signal fires; drives HUD pulse and low-health audio
+    source: design/gdd/health-and-death.md
+    referenced_by:
+      - design/gdd/hud.md              # pending — critical HP visual feedback
+
+  - name: COMPANION_HEAL_THRESHOLD
+    value: 0.40
+    unit: ratio
+    tuning_range: [0.20, 0.60]
+    description: Player HP ratio at or below which a Healer companion initiates a heal
+    source: design/gdd/health-and-death.md
+    referenced_by:
+      - design/gdd/companion-ai.md     # pending — heal trigger logic
+
+  - name: COMPANION_HEAL_PERCENT
+    value: 0.30
+    unit: ratio
+    tuning_range: [0.15, 0.50]
+    description: Fraction of player max_health restored per companion heal
+    source: design/gdd/health-and-death.md
+    referenced_by:
+      - design/gdd/companion-ai.md     # pending
+
+  - name: COMPANION_HEAL_COOLDOWN
+    value: 20.0
+    unit: seconds
+    tuning_range: [10, 45]
+    description: Per-companion cooldown between heals
+    source: design/gdd/health-and-death.md
+    referenced_by:
+      - design/gdd/companion-ai.md     # pending
+
+  - name: COMPANION_MAX_TRIGGERS
+    value: 2
+    unit: heals per encounter
+    tuning_range: [1, 4]
+    description: Maximum companion heals per encounter; resets when all enemies in the combat group die or player enters a new room
+    source: design/gdd/health-and-death.md
+    referenced_by:
+      - design/gdd/companion-ai.md     # pending
+
+  # ── Movement constants (owned by movement.md) ──────────────────────────────
+
   - name: GRAVITY
-    type: constant
     value: 980.0
     unit: u/s²
+    tuning_range: [600, 1400]
     description: Downward gravitational acceleration applied each physics frame when not on floor
     source: design/gdd/movement.md
     referenced_by:
-      - design/gdd/level-design.md  # pending — vertical gap constraint
+      - design/gdd/level-design.md   # pending — vertical gap constraint derived from Formula 1
 
   - name: JUMP_VELOCITY
-    type: constant
     value: 480.0
     unit: u/s
-    description: Initial upward velocity applied at jump start; gives ~117.6 unit apex height
-    source: design/gdd/movement.md
-    referenced_by: []
-
-  - name: COYOTE_FRAMES
-    type: constant
-    value: 4
-    unit: frames
-    description: Physics frames after leaving a floor edge during which jump is still valid
-    source: design/gdd/movement.md
-    referenced_by: []
-
-  - name: DODGE_DURATION
-    type: constant
-    value: 0.45
-    unit: seconds
-    description: Total dodge roll animation duration; hard ceiling for i-frame window (Formula 4)
+    tuning_range: [300, 650]
+    description: Initial upward velocity at jump start; gives ~117.6 unit apex height at base GRAVITY
     source: design/gdd/movement.md
     referenced_by:
-      - design/gdd/combat.md  # pending
+      - design/gdd/level-design.md   # pending — vertical gap constraint
 
-  - name: DODGE_SPEED_MULTIPLIER
-    type: constant
-    value: 2.2
-    unit: ratio
-    description: Dodge velocity = move_speed × this multiplier; gives 2.1–2.8 char-height dodge distance
+  - name: TERMINAL_VELOCITY
+    value: 1200.0
+    unit: u/s
+    tuning_range: [800, 2000]
+    description: Maximum downward fall speed; Jolt physics safety cap, not reached in normal geometry
+    source: design/gdd/movement.md
+    referenced_by:
+      - design/gdd/level-design.md   # pending — minimum platform thickness contract
+
+  - name: COYOTE_JUMP_FRAMES
+    value: 4
+    unit: frames
+    tuning_range: [2, 8]
+    description: Frames after leaving a floor edge (without jumping) during which jump is still valid
     source: design/gdd/movement.md
     referenced_by: []
+    # Note: formerly COYOTE_FRAMES — split from LADDER_REGRAB_SUPPRESS_FRAMES on 2026-06-01
+
+  - name: LADDER_REGRAB_SUPPRESS_FRAMES
+    value: 4
+    unit: frames
+    tuning_range: [2, 8]
+    description: Frames ladder collision is suppressed after a climb-exit jump, preventing immediate re-grab
+    source: design/gdd/movement.md
+    referenced_by: []
+    # Note: split from COYOTE_JUMP_FRAMES on 2026-06-01; tunable independently
+
+  - name: DODGE_DURATION
+    value: 0.45
+    unit: seconds
+    tuning_range: [0.30, 0.65]
+    description: Total dodge roll animation duration; hard ceiling for I-frame window (Formula 4)
+    source: design/gdd/movement.md
+    referenced_by:
+      - design/gdd/character-stats.md  # I-frame ceiling note in Direct Stats
+      - design/gdd/combat.md           # pending — I-frame flag read timing
+
+  - name: DODGE_SPEED_MULTIPLIER
+    value: 2.2
+    unit: multiplier
+    tuning_range: [1.5, 3.0]
+    description: Dodge velocity = move_speed × this; barrier skip threshold scales with this value
+    source: design/gdd/movement.md
+    referenced_by:
+      - design/gdd/level-design.md   # pending — 180-unit minimum barrier constraint
+
+  - name: PARRY_RECOVERY
+    value: 0.15
+    unit: seconds
+    tuning_range: [0.05, 0.40]
+    description: Fixed recovery lock after parry_window closes; not gear-modifiable; enforces parry commitment cost
+    source: design/gdd/movement.md
+    referenced_by:
+      - design/gdd/combat.md         # pending — recovery phase hit handling
 
   - name: CLIMB_SPEED
-    type: constant
     value: 80.0
     unit: u/s
+    tuning_range: [50, 140]
     description: Vertical speed while on a ladder or rope
     source: design/gdd/movement.md
     referenced_by: []
 
   - name: DROP_THROUGH_HOLD
-    type: constant
     value: 0.10
     unit: seconds
-    description: Duration move_down must be held to trigger drop-through on a one-way platform
+    tuning_range: [0.05, 0.25]
+    description: Duration move_down must be held continuously to trigger drop-through on a one-way platform
     source: design/gdd/movement.md
     referenced_by: []
 
   - name: DROP_THROUGH_GRACE
-    type: constant
     value: 0.20
     unit: seconds
+    tuning_range: [0.10, 0.40]
     description: Duration one_way_platform collision is disabled after a drop-through trigger
     source: design/gdd/movement.md
     referenced_by: []
 
-actions:
-  # --- Movement GDD actions ---
-  - name: i_frames_active
-    type: flag
-    description: Boolean; true during the I-frame window of a dodge roll. Read by Combat to determine hit immunity.
-    source: design/gdd/movement.md
-    referenced_by:
-      - design/gdd/combat.md  # pending
 
-  # --- Input & Controls GDD actions ---
-  # was: single `move` action before 2026-05-31 design-review
+# ─────────────────────────────────────────────────────────────
+stats:
+  # Gear-modifiable stats owned by character-stats.md, consumed by movement.md and combat.md
+
+  - name: parry_window
+    base_value: 0.35
+    unit: seconds
+    range: [0.15, 0.60]
+    gear_modifiable: true
+    description: Parry success timing window; gear can shorten for high-skill builds
+    source: design/gdd/character-stats.md
+    referenced_by:
+      - design/gdd/movement.md       # PARRY_DURATION = parry_window + PARRY_RECOVERY
+      - design/gdd/combat.md         # pending
+
+  - name: dodge_iframes
+    base_value: 0.22
+    unit: seconds
+    range: [0.10, 0.45]
+    gear_modifiable: true
+    description: Raw I-frame duration during a dodge roll (clamped at runtime against DODGE_DURATION)
+    source: design/gdd/character-stats.md
+    referenced_by:
+      - design/gdd/movement.md       # Formula 4 I-frame window
+
+  - name: dodge_iframes_delay
+    base_value: 0.08
+    unit: seconds
+    range: [0.03, 0.15]
+    gear_modifiable: true
+    description: Delay before I-frames activate after dodge starts
+    source: design/gdd/character-stats.md
+    referenced_by:
+      - design/gdd/movement.md       # Formula 4 I-frame window
+
+  - name: hit_stun_duration
+    base_value: 0.35
+    unit: seconds
+    range: [0.0, 0.80]
+    gear_modifiable: true
+    description: Duration entity is in HIT_STUN state after taking a non-I-frame hit
+    source: design/gdd/character-stats.md
+    referenced_by:
+      - design/gdd/movement.md       # §6 Hit Stun
+      - design/gdd/combat.md         # pending
+
+
+# ─────────────────────────────────────────────────────────────
+entities:
+  # Named game entities with attributes that appear in 2+ GDDs
+
+  - name: Warrior
+    move_speed_base: 120
+    move_speed_max: 135
+    move_speed_unit: u/s
+    hp_base_lv1: 105           # STR 9, Formula 5 in character-stats.md
+    stamina_base_lv1: 53       # DEX 4, Formula 7 in character-stats.md
+    source: design/gdd/character-stats.md
+    referenced_by:
+      - design/gdd/movement.md   # Formula 2 dodge velocity examples
+
+  - name: Thief
+    move_speed_base: 145
+    move_speed_max: 160
+    move_speed_unit: u/s
+    hp_base_lv1: 80            # STR 4, approx from Formula 5
+    stamina_base_lv1: 56       # DEX 9, Formula 7 in character-stats.md
+    source: design/gdd/character-stats.md
+    referenced_by:
+      - design/gdd/movement.md   # Formula 2/3 dodge velocity/distance examples
+
+  - name: Archer
+    move_speed_base: 135
+    move_speed_max: 150
+    move_speed_unit: u/s
+    source: design/gdd/character-stats.md
+    referenced_by: []
+
+  - name: Mage
+    move_speed_base: 125
+    move_speed_max: 140
+    move_speed_unit: u/s
+    hp_base_lv1: 80            # STR 4, approx from Formula 5
+    source: design/gdd/character-stats.md
+    referenced_by: []
+
+
+# ─────────────────────────────────────────────────────────────
+actions:
+  # Named input actions from input-and-controls.md consumed by movement.md and combat.md
+
   - name: move_left
-    type: action
     bufferable: false
-    description: Leftward directional axis; one of four components for Input.get_vector()
+    description: Leftward directional axis; one component of Input.get_vector()
     source: design/gdd/input-and-controls.md
     referenced_by:
-      - design/gdd/movement.md  # pending
+      - design/gdd/movement.md
 
   - name: move_right
-    type: action
     bufferable: false
-    description: Rightward directional axis; one of four components for Input.get_vector()
+    description: Rightward directional axis
     source: design/gdd/input-and-controls.md
     referenced_by:
-      - design/gdd/movement.md  # pending
+      - design/gdd/movement.md
 
   - name: move_up
-    type: action
     bufferable: false
-    description: Upward directional axis; one of four components for Input.get_vector()
+    description: Upward directional axis; triggers ladder grab in movement.md
     source: design/gdd/input-and-controls.md
     referenced_by:
-      - design/gdd/movement.md  # pending
+      - design/gdd/movement.md
 
   - name: move_down
-    type: action
     bufferable: false
-    description: Downward directional axis; one of four components for Input.get_vector()
+    description: Downward directional axis; triggers drop-through in movement.md
     source: design/gdd/input-and-controls.md
     referenced_by:
-      - design/gdd/movement.md  # pending
+      - design/gdd/movement.md
 
   - name: attack
-    type: action
     bufferable: true
     source: design/gdd/input-and-controls.md
     referenced_by:
-      - design/gdd/combat.md  # pending
+      - design/gdd/combat.md    # pending
 
   - name: dodge
-    type: action
     bufferable: true
     stamina_cost: 20
     source: design/gdd/input-and-controls.md
     referenced_by:
-      - design/gdd/combat.md  # pending
-      - design/gdd/stamina.md  # pending
+      - design/gdd/movement.md
+      - design/gdd/stamina.md   # pending
+      - design/gdd/combat.md    # pending
 
   - name: parry
-    type: action
     bufferable: true
     stamina_cost: 25
-    window_seconds: 0.35
+    window_seconds: 0.35        # = PARRY_WINDOW_BASE; gear-modifiable
     source: design/gdd/input-and-controls.md
     referenced_by:
-      - design/gdd/combat.md  # pending
-      - design/gdd/stamina.md  # pending
+      - design/gdd/movement.md
+      - design/gdd/stamina.md   # pending
+      - design/gdd/combat.md    # pending
 
   - name: jump
-    type: action
     bufferable: false
+    description: Direct-polled via is_action_just_pressed(); no InputResolver buffer (intentional)
     source: design/gdd/input-and-controls.md
     referenced_by:
-      - design/gdd/movement.md  # pending
+      - design/gdd/movement.md
+
+
+# ─────────────────────────────────────────────────────────────
+flags:
+  # Runtime boolean flags exposed by one system and read by others
+
+  - name: i_frames_active
+    type: bool
+    description: True during the I-frame window of a dodge roll; read by Combat to determine hit immunity
+    source: design/gdd/movement.md
+    referenced_by:
+      - design/gdd/combat.md    # pending — must read this flag, not compute its own

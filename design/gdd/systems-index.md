@@ -29,8 +29,8 @@ that depend on it.
 | 2 | Input & Controls | Core | MVP | Approved | design/gdd/input-and-controls.md | *(none)* |
 | 3 | Scene Management | Core | MVP | Not Started | — | *(none)* |
 | 4 | Save & Load | Core | Vertical Slice | Not Started | — | *(none)* |
-| 5 | Movement | Gameplay | MVP | Designed | design/gdd/movement.md | Input & Controls, Character Stats |
-| 6 | Health & Death | Gameplay | MVP | Not Started | — | Character Stats |
+| 5 | Movement | Gameplay | MVP | Approved | design/gdd/movement.md | Input & Controls, Character Stats |
+| 6 | Health & Death | Gameplay | MVP | Approved | design/gdd/health-and-death.md | Character Stats |
 | 7 | Stamina | Gameplay | MVP | Not Started | — | Character Stats, Input & Controls |
 | 8 | Inventory & Equipment | Economy | Vertical Slice | Not Started | — | Character Stats |
 | 9 | Combat | Gameplay | MVP | Not Started | — | Movement, Health & Death, Stamina, Input & Controls |
